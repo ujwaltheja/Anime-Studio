@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Anime Studio</string>
+    <string name="upload_video">Upload Video</string>
+    <string name="record_video">Record Video</string>
+    <string name="choose_style">Choose Style</string>
+    <string name="processing">Processing…</string>
+    <string name="complete">Complete!</string>
+    <string name="error">Error</string>
+    <string name="share">Share</string>
+    <string name="cancel">Cancel</string>
+</resources>
