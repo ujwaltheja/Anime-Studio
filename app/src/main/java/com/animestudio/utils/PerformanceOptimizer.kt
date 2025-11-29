@@ -126,10 +126,10 @@ object PerformanceOptimizer {
     }
 
     /**
-     * Optimize bitmap for memory
+     * Optimize bitmap for memory (requires context)
      */
-    fun optimizeBitmapForMemory(bitmap: Bitmap): Bitmap {
-        val status = getMemoryStatus(null)
+    fun optimizeBitmapForMemory(bitmap: Bitmap, context: Context): Bitmap {
+        val status = getMemoryStatus(context)
 
         // If memory is low, reduce quality
         return if (status.percentUsed > 80) {

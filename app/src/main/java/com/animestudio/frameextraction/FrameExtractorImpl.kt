@@ -85,15 +85,27 @@ class FrameExtractorImpl(
                  videoData.uri.path ?: throw Exception("Invalid file URI")
             } else {
                 val file = File(context.cacheDir, "temp_input_video_frames.mp4")
-                context.contentResolver.openInputStream(videoData.uri)?.use { input ->
-                    FileOutputStream(file).use { output ->
-                        input.copyTo(output)
+                val inputStream = context.contentResolver.openInputStream(videoData.uri)
+                    ?: return Result.Error("Failed to open video file: Unable to read from URI")
+
+                try {
+                    inputStream.use { input ->
+                        FileOutputStream(file).use { output ->
+                            input.copyTo(output)
+                        }
                     }
+                } catch (e: Exception) {
+                    file.delete()
+                    return Result.Error("Failed to copy video file: ${e.message}", e)
+                }
+
+                if (!file.exists() || file.length() == 0L) {
+                    return Result.Error("Failed to create temporary video file")
                 }
                 file.absolutePath
             }
         } catch (e: Exception) {
-            return Result.Error("Failed to prepare video file for FFmpeg")
+            return Result.Error("Failed to prepare video file for FFmpeg: ${e.message}", e)
         }
 
         // Calculate expected frames

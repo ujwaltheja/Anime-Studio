@@ -100,39 +100,54 @@ class VideoInputManagerImpl(
     }
 
     override suspend fun validateVideo(uri: Uri): Result<Boolean> = withContext(Dispatchers.IO) {
+        var retriever: MediaMetadataRetriever? = null
         try {
-            val retriever = MediaMetadataRetriever()
+            retriever = MediaMetadataRetriever()
             retriever.setDataSource(context, uri)
 
             val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
             val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
             val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
 
-            retriever.release()
-
             // Validate video has minimum requirements
             val isValid = duration > 0 && width > 0 && height > 0
             Result.Success(isValid)
         } catch (e: Exception) {
-            Result.Error("Failed to validate video", e)
+            Result.Error("Failed to validate video: ${e.message}", e)
+        } finally {
+            try {
+                retriever?.release()
+            } catch (e: Exception) {
+                // Ignore release errors
+            }
         }
     }
 
     /**
      * Attempt to get a File object from URI
+     * Note: On Android 11+, content URIs may not resolve to real file paths
+     * In such cases, we can only work with the URI directly
      */
     private fun getFileFromUri(uri: Uri): File? {
         return try {
             when (uri.scheme) {
                 "file" -> uri.path?.let { File(it) }
                 "content" -> {
-                    // Try to get real path from content URI
-                    val projection = arrayOf(MediaStore.Video.Media.DATA)
-                    context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-                        val columnIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATA)
-                        if (cursor.moveToFirst()) {
-                            File(cursor.getString(columnIndex))
-                        } else null
+                    // Try to get real path from content URI (Android 10 and below)
+                    // On Android 11+, this will likely return null, which is expected
+                    try {
+                        @Suppress("DEPRECATION")
+                        val projection = arrayOf(MediaStore.Video.Media.DATA)
+                        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                            val columnIndex = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
+                            if (columnIndex >= 0 && cursor.moveToFirst()) {
+                                File(cursor.getString(columnIndex))
+                            } else null
+                        }
+                    } catch (e: Exception) {
+                        // Fall back to using URI directly on Android 11+
+                        // The app will handle content:// URIs directly in frame extraction
+                        null
                     }
                 }
                 else -> null

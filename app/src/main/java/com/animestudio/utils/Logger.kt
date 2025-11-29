@@ -17,7 +17,15 @@ import java.util.*
 object Logger {
     private const val TAG = "AnimeStudio"
     private var fileLogger: FileLogger? = null
-    private var isDebugEnabled = BuildConfig.DEBUG
+    private var isDebugEnabled = false  // Will be set by init() or configuration
+
+    /**
+     * Initialize logger with debug mode preference
+     * Call this early in app lifecycle
+     */
+    fun setDebugEnabled(enabled: Boolean) {
+        isDebugEnabled = enabled
+    }
 
     // Log levels
     enum class Level {
@@ -159,6 +167,3 @@ object Logger {
     }
 }
 
-object BuildConfig {
-    const val DEBUG = true  // This should be set by the build system
-}
