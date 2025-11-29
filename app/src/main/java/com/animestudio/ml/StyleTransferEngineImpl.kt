@@ -77,20 +77,19 @@ class StyleTransferEngineImpl(
                     try {
                         gpuDelegate = GpuDelegate()
                         addDelegate(gpuDelegate)
-                        Logger.i("StyleTransferEngine", "GPU acceleration enabled")
                     } catch (e: Exception) {
                         // GPU not available, continue without it
-                        Logger.w("StyleTransferEngine", "GPU delegate not available: ${e.message}. Will use CPU instead.")
+                        println("GPU delegate not available: ${e.message}")
                     }
                 }
 
                 // Use NNAPI if available (Android 8.1+) - with fallback
                 try {
                     setUseNNAPI(true)
-                    Logger.i("StyleTransferEngine", "NNAPI enabled")
                 } catch (e: Exception) {
                     // NNAPI not available, continue without it
-                    Logger.w("StyleTransferEngine", "NNAPI not available: ${e.message}. Will use default inference.")
+                    println("NNAPI not available: ${e.message}")
+                }
             }
 
             // Create interpreter
@@ -242,7 +241,6 @@ class StyleTransferEngineImpl(
     ): Result<List<FrameData>> = withContext(Dispatchers.IO) {
         isCancelled = false
         val styledFrames = mutableListOf<FrameData>()
-        val failedFrames = mutableListOf<Pair<Int, String>>()
 
         try {
             frames.forEachIndexed { index, frame ->
@@ -256,28 +254,16 @@ class StyleTransferEngineImpl(
                         onProgress(index + 1, frames.size)
                     }
                     is Result.Error -> {
-                        // Track failed frames
-                        failedFrames.add(Pair(frame.frameNumber, result.message))
-                        Logger.w("StyleTransferEngine", "Error processing frame ${frame.frameNumber}: ${result.message}")
-                        // Continue with other frames to maximize success
+                        // Log error but continue with other frames
+                        println("Error processing frame ${frame.index}: ${result.message}")
                     }
                     else -> {}
                 }
             }
 
-            // Check if we have results
-            if (styledFrames.isEmpty() && failedFrames.isNotEmpty()) {
-                val failureReport = failedFrames.take(3).joinToString(", ") { (num, msg) -> "Frame $num: $msg" }
-                return@withContext Result.Error("All frames failed processing: $failureReport")
-            }
-
-            if (failedFrames.isNotEmpty()) {
-                Logger.w("StyleTransferEngine", "Batch processing completed with ${failedFrames.size}/${frames.size} frames failed")
-            }
-
             Result.Success(styledFrames)
         } catch (e: Exception) {
-            Result.Error("Batch processing failed: ${e.message}", e)
+            Result.Error("Batch processing failed", e)
         }
     }
 
@@ -362,18 +348,15 @@ class StyleTransferEngineImpl(
             if (!modelPath.startsWith("/")) {
                 try {
                     val assetFileDescriptor = context.assets.openFd(modelPath)
-                    var inputStream: FileInputStream? = null
-                    return try {
-                        inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
-                        val fileChannel = inputStream.channel
-                        val startOffset = assetFileDescriptor.startOffset
-                        val declaredLength = assetFileDescriptor.declaredLength
-                        fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-                    } finally {
-                        inputStream?.close()
-                    }
+                    val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
+                    val fileChannel = inputStream.channel
+                    val startOffset = assetFileDescriptor.startOffset
+                    val declaredLength = assetFileDescriptor.declaredLength
+                    val buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+                    inputStream.close()
+                    return buffer
                 } catch (e: Exception) {
-                    Logger.e("StyleTransferEngine", "Failed to load model from assets: ${e.message}", e)
+                    println("Failed to load model from assets: ${e.message}")
                     throw e
                 }
             }
@@ -381,20 +364,18 @@ class StyleTransferEngineImpl(
             // Try loading from file system
             val file = File(modelPath)
             if (file.exists()) {
-                var inputStream: FileInputStream? = null
-                return try {
-                    inputStream = FileInputStream(file)
-                    val fileChannel = inputStream.channel
-                    fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, file.length())
-                } finally {
-                    inputStream?.close()
-                }
+                val inputStream = FileInputStream(file)
+                val fileChannel = inputStream.channel
+                val buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, file.length())
+                inputStream.close()
+                return buffer
             }
 
-            Logger.w("StyleTransferEngine", "Model file not found: $modelPath")
+            println("Model file not found: $modelPath")
             null
         } catch (e: Exception) {
-            Logger.e("StyleTransferEngine", "Error loading model file: ${e.message}", e)
+            println("Error loading model file: ${e.message}")
+            e.printStackTrace()
             null
         }
     }
