@@ -209,7 +209,7 @@ object ModelRegistry {
         sizeBytes = 16_700_000,  // 16.7 MB from report
         version = "1.0",
         requiredDelegate = DelegateType.GPU,
-        bundled = false,
+        bundled = true,
         downloadUrl = "https://your-cdn.com/models/real_esrgan_anime.tflite"
     )
     

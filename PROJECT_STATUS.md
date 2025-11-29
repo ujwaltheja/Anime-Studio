@@ -43,6 +43,7 @@
 ## 📂 Key Files
 
 - `PROJECT_INDEX.md`: Master documentation map
+- `SETUP_REQUIREMENTS.md`: Detailed setup & model instructions
 - `WHITEBOX_INTEGRATION_GUIDE.md`: Guide for Phase 2 Feature 1
 - `PHASE3_COMPLETE.md`: Guide for Phase 3
 - `PHASE4_COMPLETE.md`: Guide for Phase 4
