@@ -1,32 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(.gradlew clean:*)",
-      "Bash(gradlew.bat clean:*)",
-      "Bash(gradle wrapper:*)",
-      "Bash(gradle --version:*)",
-      "Bash(curl:*)",
-      "Bash(chmod:*)",
-      "Bash(./gradlew:*)",
-      "Bash(tee:*)",
-      "Bash(aapt dump:*)",
-      "Bash(unzip:*)",
-      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\FrameExtractor.kt\" )",
-      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\StyleTransferEngine.kt\" )",
-      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\VideoReconstructor.kt\" )",
-      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\VideoInputManager.kt\")",
-      "Bash(git clone:*)",
-      "Bash(git sparse-checkout:*)",
-      "Bash(bash:*)",
-      "Bash(tar:*)",
-      "Bash(adb devices:*)",
-      "Bash(adb kill-server:*)",
-      "Bash(adb start-server:*)",
-      "Bash(md5sum app/build/outputs/apk/debug/app-debug.apk)",
-      "Bash(certutil -hashfile:*)",
-      "Bash(tree:*)",
-      "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Production-ready v2.0.0 - Complete app overhaul with critical fixes and latest 2025 models\n\nCRITICAL FIXES:\n- Fixed frame conversion bug in bitmapToByteBuffer (incorrect pixel ordering)\n- Fixed denormalization in byteBufferToBitmap (color channel extraction)\n- Proper RGB to normalized float conversion for AnimeGAN models\n- Fixed dimension tracking for frame resizing\n\nFEATURES ADDED:\n- Integrated AnimeGAN v3.1 (Hayao, Shinkai, Paprika, Hosoda styles)\n- Added CartoonGAN v2.1 support\n- Centralized logging system with file output\n- Advanced error handling with user-friendly recovery suggestions\n- Performance optimization utilities\n- Memory management and threshold detection\n- AppConfig for centralized configuration management\n\nDEPENDENCIES UPGRADED (Latest 2025):\n- TensorFlow Lite: 2.16.0 (latest)\n- Jetpack Compose BOM: 2025.01.00\n- Media3: 1.4.1\n- Glide: 4.17.0\n- Retrofit: 2.12.0\n- OkHttp: 4.13.0\n- Test dependencies: latest stable\n\nCODE QUALITY:\n- Removed duplicate getModelPathForStyle method\n- Enhanced error messages with actionable suggestions\n- Improved logging throughout FrameExtractor\n- Added try-catch blocks with proper resource cleanup\n- Better exception handling in ML inference\n\nUTILITIES ADDED:\n- Logger.kt: Centralized logging with file persistence\n- ErrorHandler.kt: Advanced error categorization and recovery\n- PerformanceOptimizer.kt: Memory and performance utilities\n- AppConfig.kt: Central configuration with model metadata\n\nDOCUMENTATION:\n- Created comprehensive PRODUCTION_GUIDE.md\n- Added model reference documentation\n- Performance characteristics and optimization tips\n- Security and privacy considerations\n- Troubleshooting guide\n\nSTATUS: Production-Ready\n- All critical bugs fixed\n- Latest dependencies updated\n- Comprehensive error handling\n- Memory-safe operations\n- Logging and monitoring ready\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

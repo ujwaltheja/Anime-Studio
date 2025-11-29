@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.animestudio"
-    compileSdk = 35 // Updated to latest
+    compileSdk = 34 // Latest fully supported (35 requires Gradle 8.3+)
 
     defaultConfig {
         applicationId = "com.animestudio"
         minSdk = 26
-        targetSdk = 35 // Updated to latest
+        targetSdk = 34 // Latest fully supported (35 requires Gradle 8.3+)
         versionCode = 2 // Incremented version
         versionName = "1.1.0" // Production release
 
@@ -147,16 +147,16 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
-    // TensorFlow Lite for ML inference - LATEST 2025 VERSION
-    implementation("org.tensorflow:tensorflow-lite:2.16.0")
-    implementation("org.tensorflow:tensorflow-lite-gpu:2.16.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.5")
+    // TensorFlow Lite for ML inference - LATEST STABLE VERSION
+    implementation("org.tensorflow:tensorflow-lite:2.15.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.15.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     // Optional: TF Lite GPU delegate
     implementation("org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.4")
     // Optional: TF Lite metadata
     implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
     // TF Lite Flex Support for advanced models
-    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.16.0")
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.15.0")
 
     // FFmpeg for video processing - Using local AAR
     implementation(files("libs/ffmpeg-kit-full-6.0-2.LTS.aar"))
@@ -167,9 +167,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
 
-    // Image processing - Latest 2025
-    implementation("com.github.bumptech.glide:glide:4.17.0")
-    annotationProcessor("com.github.bumptech.glide:compiler:4.17.0")
+    // Image processing - Latest stable
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
     // WorkManager for background processing
     implementation("androidx.work:work-runtime-ktx:2.9.0")
@@ -185,16 +185,16 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     testImplementation("androidx.test:core-ktx:1.5.0")
     
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2025.01.00"))
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
-    // Optional: For cloud API integration (Latest 2025 versions)
-    implementation("com.squareup.retrofit2:retrofit:2.12.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.12.0")
-    implementation("com.squareup.okhttp3:okhttp:4.13.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.13.0")
+    // Optional: For cloud API integration (Latest stable versions)
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     // Optional: Firebase for analytics and crashlytics (uncomment for production)
     // implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
