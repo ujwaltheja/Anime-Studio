@@ -1,6 +1,15 @@
 # ML Model Setup Guide
 
 Complete guide for setting up TensorFlow Lite models for anime/cartoon style transfer.
+n## Quick Start - Models Already Installed ✓
+
+The following models have been pre-installed in `app/src/main/assets/models/`:
+
+1. **CartoonGAN** (cartoongan.tflite) - 1.8 MB - Classic cartoon style
+2. **Arbitrary Style Transfer** (style_transfer.tflite) - 2.7 MB - General-purpose style transfer
+
+You can now build and run the app! Additional models can be added following the instructions below.
+
 
 ## Table of Contents
 
@@ -42,7 +51,9 @@ git clone https://github.com/SystemErrorWang/White-box-Cartoonization
 cd White-box-Cartoonization
 
 # Download pre-trained weights
-# Follow repository instructions
+# Direct download link for TFLite model:
+# https://storage.googleapis.com/cartoon_gan/fixed_shaped_models/with_metadata/whitebox_cartoon_gan_int8.tflite
+# Rename to: cartoongan.tflite
 ```
 
 #### AnimeGANv2

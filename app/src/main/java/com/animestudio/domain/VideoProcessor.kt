@@ -41,6 +41,21 @@ interface VideoInputManager {
      * Get video metadata
      */
     suspend fun getVideoMetadata(uri: android.net.Uri): Result<VideoData>
+
+    /**
+     * Set current video URI
+     */
+    fun setCurrentVideoUri(uri: android.net.Uri)
+
+    /**
+     * Get current video URI
+     */
+    fun getCurrentVideoUri(): android.net.Uri?
+
+    /**
+     * Validate video
+     */
+    suspend fun validateVideo(uri: android.net.Uri): Result<Boolean>
 }
 
 /**
@@ -82,12 +97,33 @@ interface StyleTransferEngine {
     suspend fun transferStyle(frame: FrameData): Result<FrameData>
 
     /**
+     * Process a single frame with progress callback
+     */
+    suspend fun processFrame(
+        frame: FrameData,
+        onProgress: (Float) -> Unit = {}
+    ): Result<FrameData>
+
+    /**
      * Batch process frames
      */
     suspend fun transferStyleBatch(
         frames: List<FrameData>,
         onProgress: (Int, Int) -> Unit = { _, _ -> }
     ): Result<List<FrameData>>
+
+    /**
+     * Process multiple frames
+     */
+    suspend fun processFrames(
+        frames: List<FrameData>,
+        onProgress: (Int, Int) -> Unit = { _, _ -> }
+    ): Result<List<FrameData>>
+
+    /**
+     * Apply style to bitmap
+     */
+    suspend fun applyStyle(bitmap: android.graphics.Bitmap): Result<android.graphics.Bitmap>
 
     /**
      * Release model resources

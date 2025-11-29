@@ -6,7 +6,7 @@ import com.animestudio.frameextraction.FrameExtractorImpl
 import com.animestudio.ml.StyleTransferEngineImpl
 import com.animestudio.videoreconstruction.VideoReconstructorImpl
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.channelFlow
 import java.io.File
 
 /**
@@ -27,7 +27,7 @@ class VideoProcessorImpl(
         videoData: VideoData,
         styleConfig: StyleConfig,
         outputFile: File
-    ): Flow<ProcessingState> = flow {
+    ): Flow<ProcessingState> = channelFlow {
         isCancelled = false
 
         try {
@@ -38,24 +38,24 @@ class VideoProcessorImpl(
             framesDir.mkdirs()
             styledFramesDir.mkdirs()
 
-            emit(ProcessingState.Loading("Initializing ML model..."))
+            send(ProcessingState.Loading("Initializing ML model..."))
 
             // 1. Initialize ML model
             when (val initResult = styleTransferEngine.initialize(styleConfig)) {
                 is Result.Error -> {
-                    emit(ProcessingState.Error(initResult.message, initResult.exception))
-                    return@flow
+                    send(ProcessingState.Error(initResult.message, initResult.exception))
+                    return@channelFlow
                 }
                 else -> {}
             }
 
             if (checkCancelled()) {
                 cleanup(workDir)
-                emit(ProcessingState.Error("Processing cancelled"))
-                return@flow
+                send(ProcessingState.Error("Processing cancelled"))
+                return@channelFlow
             }
 
-            emit(ProcessingState.Loading("Extracting frames..."))
+            send(ProcessingState.Loading("Extracting frames..."))
 
             // 2. Extract frames
             val framesResult = frameExtractor.extractFrames(
@@ -64,9 +64,7 @@ class VideoProcessorImpl(
                 extractionInterval = 0L, // Extract all frames
                 onProgress = { current, total ->
                     if (!isCancelled) {
-                        kotlinx.coroutines.runBlocking {
-                            emit(ProcessingState.Extracting(current, total))
-                        }
+                        trySend(ProcessingState.Extracting(current, total))
                     }
                 }
             )
@@ -75,32 +73,30 @@ class VideoProcessorImpl(
                 is Result.Success -> framesResult.data
                 is Result.Error -> {
                     cleanup(workDir)
-                    emit(ProcessingState.Error(framesResult.message, framesResult.exception))
-                    return@flow
+                    send(ProcessingState.Error(framesResult.message, framesResult.exception))
+                    return@channelFlow
                 }
                 else -> {
                     cleanup(workDir)
-                    emit(ProcessingState.Error("Unknown error during frame extraction"))
-                    return@flow
+                    send(ProcessingState.Error("Unknown error during frame extraction"))
+                    return@channelFlow
                 }
             }
 
             if (checkCancelled()) {
                 cleanup(workDir)
-                emit(ProcessingState.Error("Processing cancelled"))
-                return@flow
+                send(ProcessingState.Error("Processing cancelled"))
+                return@channelFlow
             }
 
-            emit(ProcessingState.Loading("Applying style transfer..."))
+            send(ProcessingState.Loading("Applying style transfer..."))
 
             // 3. Apply style transfer to all frames
             val styledFramesResult = styleTransferEngine.transferStyleBatch(
                 frames = frames,
                 onProgress = { current, total ->
                     if (!isCancelled) {
-                        kotlinx.coroutines.runBlocking {
-                            emit(ProcessingState.Transferring(current, total))
-                        }
+                        trySend(ProcessingState.Transferring(current, total))
                     }
                 }
             )
@@ -109,23 +105,23 @@ class VideoProcessorImpl(
                 is Result.Success -> styledFramesResult.data
                 is Result.Error -> {
                     cleanup(workDir)
-                    emit(ProcessingState.Error(styledFramesResult.message, styledFramesResult.exception))
-                    return@flow
+                    send(ProcessingState.Error(styledFramesResult.message, styledFramesResult.exception))
+                    return@channelFlow
                 }
                 else -> {
                     cleanup(workDir)
-                    emit(ProcessingState.Error("Unknown error during style transfer"))
-                    return@flow
+                    send(ProcessingState.Error("Unknown error during style transfer"))
+                    return@channelFlow
                 }
             }
 
             if (checkCancelled()) {
                 cleanup(workDir)
-                emit(ProcessingState.Error("Processing cancelled"))
-                return@flow
+                send(ProcessingState.Error("Processing cancelled"))
+                return@channelFlow
             }
 
-            emit(ProcessingState.Loading("Extracting audio..."))
+            send(ProcessingState.Loading("Extracting audio..."))
 
             // 4. Extract audio if video has audio
             var audioFile: File? = null
@@ -143,11 +139,11 @@ class VideoProcessorImpl(
 
             if (checkCancelled()) {
                 cleanup(workDir)
-                emit(ProcessingState.Error("Processing cancelled"))
-                return@flow
+                send(ProcessingState.Error("Processing cancelled"))
+                return@channelFlow
             }
 
-            emit(ProcessingState.Loading("Reconstructing video..."))
+            send(ProcessingState.Loading("Reconstructing video..."))
 
             // 5. Reconstruct video from styled frames
             val reconstructResult = videoReconstructor.reconstructVideo(
@@ -157,9 +153,7 @@ class VideoProcessorImpl(
                 frameRate = videoData.frameRate,
                 onProgress = { progress ->
                     if (!isCancelled) {
-                        kotlinx.coroutines.runBlocking {
-                            emit(ProcessingState.Reconstructing(progress))
-                        }
+                        trySend(ProcessingState.Reconstructing(progress))
                     }
                 }
             )
@@ -167,20 +161,21 @@ class VideoProcessorImpl(
             when (reconstructResult) {
                 is Result.Success -> {
                     cleanup(workDir)
-                    emit(ProcessingState.Complete(reconstructResult.data))
+                    send(ProcessingState.Complete(reconstructResult.data))
                 }
                 is Result.Error -> {
                     cleanup(workDir)
-                    emit(ProcessingState.Error(reconstructResult.message, reconstructResult.exception))
+                    send(ProcessingState.Error(reconstructResult.message, reconstructResult.exception))
                 }
                 else -> {
                     cleanup(workDir)
-                    emit(ProcessingState.Error("Unknown error during video reconstruction"))
+                    send(ProcessingState.Error("Unknown error during video reconstruction"))
                 }
             }
 
-        } catch (e: Exception) {
-            emit(ProcessingState.Error("Unexpected error during processing", e))
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            send(ProcessingState.Error("Unexpected error during processing: ${e.message}", e))
         } finally {
             styleTransferEngine.release()
         }

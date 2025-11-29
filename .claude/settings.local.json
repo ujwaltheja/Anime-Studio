@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.gradlew clean:*)",
+      "Bash(gradlew.bat clean:*)",
+      "Bash(gradle wrapper:*)",
+      "Bash(gradle --version:*)",
+      "Bash(curl:*)",
+      "Bash(chmod:*)",
+      "Bash(./gradlew:*)",
+      "Bash(tee:*)",
+      "Bash(aapt dump:*)",
+      "Bash(unzip:*)",
+      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\FrameExtractor.kt\" )",
+      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\StyleTransferEngine.kt\" )",
+      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\VideoReconstructor.kt\" )",
+      "Bash(\"d:\\Github\\Anime-Studio\\app\\src\\main\\java\\com\\animestudio\\domain\\VideoInputManager.kt\")",
+      "Bash(git clone:*)",
+      "Bash(git sparse-checkout:*)",
+      "Bash(bash:*)",
+      "Bash(tar:*)",
+      "Bash(adb devices:*)",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)",
+      "Bash(md5sum app/build/outputs/apk/debug/app-debug.apk)",
+      "Bash(certutil -hashfile:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

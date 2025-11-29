@@ -78,6 +78,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // Compose debugging tools
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -92,9 +93,11 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 
-    // FFmpeg for video processing (choose one)
-    // Option 1: FFmpeg Kit (recommended - more features, actively maintained)
-    implementation("com.arthenica:ffmpeg-kit-full:5.1")
+    // FFmpeg for video processing
+    // FFmpeg Kit - Using local AAR file
+    implementation(files("libs/ffmpeg-kit-full-6.0-2.LTS.aar"))
+    // FFmpeg Kit dependencies (required when using local AAR)
+    implementation("com.arthenica:smart-exception-java:0.2.1")
 
     // Option 2: Mobile FFmpeg (alternative)
     // implementation("com.arthenica:mobile-ffmpeg-full:4.4.LTS")

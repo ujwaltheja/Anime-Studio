@@ -72,14 +72,24 @@ class StyleTransferEngineImpl(
             val options = Interpreter.Options().apply {
                 setNumThreads(4)
 
-                // Enable GPU acceleration if requested
+                // Enable GPU acceleration if requested (with fallback)
                 if (styleConfig.useGPU) {
-                    gpuDelegate = GpuDelegate()
-                    addDelegate(gpuDelegate)
+                    try {
+                        gpuDelegate = GpuDelegate()
+                        addDelegate(gpuDelegate)
+                    } catch (e: Exception) {
+                        // GPU not available, continue without it
+                        println("GPU delegate not available: ${e.message}")
+                    }
                 }
 
-                // Use NNAPI if available (Android 8.1+)
-                setUseNNAPI(true)
+                // Use NNAPI if available (Android 8.1+) - with fallback
+                try {
+                    setUseNNAPI(true)
+                } catch (e: Exception) {
+                    // NNAPI not available, continue without it
+                    println("NNAPI not available: ${e.message}")
+                }
             }
 
             // Create interpreter
@@ -184,6 +194,64 @@ class StyleTransferEngineImpl(
         }
     }
 
+    override suspend fun processFrame(
+        frame: FrameData,
+        onProgress: (Float) -> Unit
+    ): Result<FrameData> {
+        // Delegate to transferStyle with progress reporting
+        onProgress(0f)
+        val result = transferStyle(frame)
+        onProgress(1f)
+        return result
+    }
+
+    override suspend fun processFrames(
+        frames: List<FrameData>,
+        onProgress: (Int, Int) -> Unit
+    ): Result<List<FrameData>> {
+        // Delegate to transferStyleBatch
+        return transferStyleBatch(frames, onProgress)
+    }
+
+    override suspend fun applyStyle(bitmap: Bitmap): Result<Bitmap> = withContext(Dispatchers.IO) {
+        try {
+            val interpreter = this@StyleTransferEngineImpl.interpreter
+                ?: return@withContext Result.Error("Model not initialized")
+
+            // Preprocess: resize to model input size
+            val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
+
+            // Convert bitmap to ByteBuffer
+            val inputBuffer = bitmapToByteBuffer(resizedBitmap)
+
+            // Prepare output buffer
+            val outputBuffer = ByteBuffer.allocateDirect(4 * inputWidth * inputHeight * pixelSize).apply {
+                order(ByteOrder.nativeOrder())
+            }
+
+            // Run inference
+            interpreter.run(inputBuffer, outputBuffer)
+
+            // Convert output buffer to bitmap
+            val outputBitmap = byteBufferToBitmap(outputBuffer, inputWidth, inputHeight)
+
+            // Resize back to original dimensions if needed
+            val finalBitmap = if (bitmap.width != inputWidth || bitmap.height != inputHeight) {
+                Bitmap.createScaledBitmap(outputBitmap, bitmap.width, bitmap.height, true)
+            } else {
+                outputBitmap
+            }
+
+            // Clean up
+            if (resizedBitmap != bitmap) resizedBitmap.recycle()
+            if (outputBitmap != finalBitmap) outputBitmap.recycle()
+
+            Result.Success(finalBitmap)
+        } catch (e: Exception) {
+            Result.Error("Failed to apply style to bitmap", e)
+        }
+    }
+
     override fun release() {
         interpreter?.close()
         interpreter = null
@@ -205,12 +273,19 @@ class StyleTransferEngineImpl(
         return try {
             // Try loading from assets first
             if (!modelPath.startsWith("/")) {
-                val assetFileDescriptor = context.assets.openFd(modelPath)
-                val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
-                val fileChannel = inputStream.channel
-                val startOffset = assetFileDescriptor.startOffset
-                val declaredLength = assetFileDescriptor.declaredLength
-                return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+                try {
+                    val assetFileDescriptor = context.assets.openFd(modelPath)
+                    val inputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
+                    val fileChannel = inputStream.channel
+                    val startOffset = assetFileDescriptor.startOffset
+                    val declaredLength = assetFileDescriptor.declaredLength
+                    val buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
+                    inputStream.close()
+                    return buffer
+                } catch (e: Exception) {
+                    println("Failed to load model from assets: ${e.message}")
+                    throw e
+                }
             }
 
             // Try loading from file system
@@ -218,11 +293,16 @@ class StyleTransferEngineImpl(
             if (file.exists()) {
                 val inputStream = FileInputStream(file)
                 val fileChannel = inputStream.channel
-                return fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, file.length())
+                val buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, file.length())
+                inputStream.close()
+                return buffer
             }
 
+            println("Model file not found: $modelPath")
             null
         } catch (e: Exception) {
+            println("Error loading model file: ${e.message}")
+            e.printStackTrace()
             null
         }
     }

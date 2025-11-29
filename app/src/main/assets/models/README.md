@@ -1,72 +1,68 @@
-# ML Models Directory
+# AI Models Directory
 
-Place your TensorFlow Lite (.tflite) model files here.
+This directory contains TensorFlow Lite models for anime/cartoon style transfer.
 
-## Required Models
+## Currently Installed Models
 
-To use this app, you need to add the following models:
+### 1. CartoonGAN (cartoongan.tflite)
+- **Size**: 1.8 MB
+- **Source**: TensorFlow Hub - CartoonGAN
+- **Style**: Classic cartoon/whitebox cartoonization
+- **Input**: 512x512 RGB image
+- **Format**: INT8 quantized
+- **Best for**: Converting photos to cartoon-style artwork
 
-1. **cartoongan.tflite** - CartoonGAN style transfer model
-2. **animegan.tflite** - AnimeGAN style transfer model
-3. **hayao.tflite** - Hayao Miyazaki style (Studio Ghibli)
-4. **shinkai.tflite** - Makoto Shinkai style
-5. **paprika.tflite** - Paprika style
-6. **custom.tflite** - Your custom model (optional)
+### 2. Arbitrary Style Transfer (style_transfer.tflite)
+- **Size**: 2.7 MB
+- **Source**: TensorFlow Hub - Magenta Style Transfer
+- **Style**: Arbitrary artistic style transfer
+- **Input**: 256x256 RGB image
+- **Format**: INT8 quantized
+- **Best for**: General-purpose style transfer with custom style images
 
-## Where to Get Models
+### 3. AnimeGAN (animegan.tflite)
+- **Size**: 2.2 MB
+- **Source**: PINTO Model Zoo - AnimeGANv2
+- **Style**: General anime style conversion
+- **Input**: 256x256 RGB image
+- **Format**: Weight quantized
+- **Best for**: Modern vibrant anime style
 
-See [MODEL_SETUP.md](../../../../MODEL_SETUP.md) in the root directory for:
-- Download links for pre-trained models
-- Instructions for converting models to TensorFlow Lite
-- Model optimization techniques
-- Testing procedures
+### 4. Hayao Style (hayao.tflite)
+- **Size**: 2.2 MB
+- **Source**: PINTO Model Zoo - AnimeGANv2 Hayao
+- **Style**: Miyazaki Hayao / Studio Ghibli inspired
+- **Input**: 256x256 RGB image
+- **Format**: Weight quantized
+- **Best for**: Whimsical, soft, Ghibli-style backgrounds
 
-## Model Requirements
+### 5. Shinkai Style (shinkai.tflite)
+- **Size**: 2.2 MB
+- **Source**: AnimeGANv2 Hayao (placeholder)
+- **Style**: Makoto Shinkai inspired ("Your Name", "Weathering with You")
+- **Input**: 256x256 RGB image
+- **Format**: Weight quantized
+- **Best for**: Realistic, detailed, photorealistic anime backgrounds
+- **Note**: Currently using Hayao model as placeholder. For authentic Shinkai style, convert from checkpoint at https://github.com/TachibanaYoshino/AnimeGANv2
 
-- **Format**: TensorFlow Lite (.tflite)
-- **Input**: RGB images (typically 512x512 or 450x450)
-- **Output**: Stylized RGB images (same size as input)
-- **Size**: Recommended < 10MB after optimization
+### 6. Paprika Style (paprika.tflite)
+- **Size**: 2.2 MB
+- **Source**: PINTO Model Zoo - AnimeGANv2 Paprika
+- **Style**: Satoshi Kon's Paprika inspired
+- **Input**: 256x256 RGB image
+- **Format**: Weight quantized
+- **Best for**: Surreal, dreamlike anime visuals
 
-## Quick Start
+### 7. Custom Style (custom.tflite)
+- **Size**: 1.8 MB (currently CartoonGAN copy)
+- **Source**: User-provided
+- **Style**: Your custom trained model
+- **Best for**: Replace with your own trained style transfer model
 
-1. Download or convert models using MODEL_SETUP.md guide
-2. Copy .tflite files to this directory
-3. Verify files are in place:
-   - cartoongan.tflite
-   - animegan.tflite
-   - etc.
-4. Build and run the app
+## Model Sources
 
-## Model Testing
+- **PINTO Model Zoo**: https://github.com/PINTO0309/PINTO_model_zoo/tree/main/050_AnimeGANv2
+- **AnimeGANv2 Official**: https://github.com/TachibanaYoshino/AnimeGANv2
+- **TensorFlow Hub**: https://tfhub.dev
 
-Before deploying, test each model:
-
-```python
-import tensorflow as tf
-
-# Load model
-interpreter = tf.lite.Interpreter(model_path="cartoongan.tflite")
-interpreter.allocate_tensors()
-
-# Check input/output details
-print(interpreter.get_input_details())
-print(interpreter.get_output_details())
-```
-
-Expected input shape: [1, height, width, 3]
-Expected output shape: [1, height, width, 3]
-
-## Troubleshooting
-
-**Model not loading?**
-- Verify file is in this exact directory
-- Check file extension is .tflite
-- Ensure file is not corrupted
-
-**Poor quality output?**
-- Test model outside the app first
-- Check input preprocessing matches model training
-- Try unquantized model for comparison
-
-For more help, see MODEL_SETUP.md
+See MODEL_SETUP.md in project root for model training and conversion instructions.

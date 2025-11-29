@@ -20,11 +20,14 @@ data class VideoData(
  * Represents a single extracted frame
  */
 data class FrameData(
-    val index: Int,
-    val timestamp: Long, // in microseconds
     val bitmap: android.graphics.Bitmap?,
+    val frameNumber: Int,
+    val timestamp: Long = 0L, // in microseconds
     val file: File? = null
-)
+) {
+    // Alias for backward compatibility
+    val index: Int get() = frameNumber
+}
 
 /**
  * Represents style transfer options
@@ -35,6 +38,7 @@ enum class StyleType {
     HAYAO,
     SHINKAI,
     PAPRIKA,
+    STYLE_TRANSFER,
     CUSTOM
 }
 

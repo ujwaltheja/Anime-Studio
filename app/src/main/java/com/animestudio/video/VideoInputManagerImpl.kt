@@ -91,8 +91,31 @@ class VideoInputManagerImpl(
     /**
      * Set the current video URI (called from Activity after selection/recording)
      */
-    fun setCurrentVideoUri(uri: Uri) {
+    override fun setCurrentVideoUri(uri: Uri) {
         currentVideoUri = uri
+    }
+
+    override fun getCurrentVideoUri(): Uri? {
+        return currentVideoUri
+    }
+
+    override suspend fun validateVideo(uri: Uri): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(context, uri)
+
+            val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+
+            retriever.release()
+
+            // Validate video has minimum requirements
+            val isValid = duration > 0 && width > 0 && height > 0
+            Result.Success(isValid)
+        } catch (e: Exception) {
+            Result.Error("Failed to validate video", e)
+        }
     }
 
     /**

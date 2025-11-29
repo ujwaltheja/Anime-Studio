@@ -51,9 +51,23 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
     /**
      * Start video processing with selected style
      */
+    /**
+     * Start video processing with selected style
+     */
     fun processVideo(styleType: StyleType) {
         val videoData = currentVideoData ?: run {
             _uiState.value = VideoProcessingUiState.Error("No video loaded")
+            return
+        }
+
+        val modelPath = getModelPathForStyle(styleType)
+        
+        // Check if model exists
+        if (!checkModelExists(modelPath)) {
+            _uiState.value = VideoProcessingUiState.Error(
+                message = "Model not found: $modelPath.\nPlease download the models to continue.",
+                action = ErrorAction.DOWNLOAD_MODELS
+            )
             return
         }
 
@@ -61,8 +75,8 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
             // Configure style
             val styleConfig = StyleConfig(
                 styleType = styleType,
-                modelPath = getModelPathForStyle(styleType),
-                useGPU = true,
+                modelPath = modelPath,
+                useGPU = false,  // Disabled by default to avoid crashes
                 inputSize = 512,
                 outputQuality = 90
             )
@@ -114,6 +128,17 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
+    private fun checkModelExists(modelPath: String): Boolean {
+        return try {
+            // Check assets
+            getApplication<Application>().assets.open(modelPath).close()
+            true
+        } catch (e: Exception) {
+            // Check filesystem
+            File(modelPath).exists()
+        }
+    }
+
     /**
      * Cancel ongoing processing
      */
@@ -141,6 +166,7 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
             StyleType.HAYAO -> "models/hayao.tflite"
             StyleType.SHINKAI -> "models/shinkai.tflite"
             StyleType.PAPRIKA -> "models/paprika.tflite"
+            StyleType.STYLE_TRANSFER -> "models/style_transfer.tflite"
             StyleType.CUSTOM -> "models/custom.tflite"
         }
     }
@@ -159,5 +185,13 @@ sealed class VideoProcessingUiState {
         val total: Int
     ) : VideoProcessingUiState()
     data class Complete(val outputFile: File) : VideoProcessingUiState()
-    data class Error(val message: String) : VideoProcessingUiState()
+    data class Error(
+        val message: String,
+        val action: ErrorAction? = null
+    ) : VideoProcessingUiState()
+}
+
+enum class ErrorAction {
+    RETRY,
+    DOWNLOAD_MODELS
 }
