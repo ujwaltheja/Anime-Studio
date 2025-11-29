@@ -38,6 +38,7 @@ enum class StyleType {
     HAYAO,
     SHINKAI,
     PAPRIKA,
+    CEL_SHADED,      // NEW - Phase 2: White-box Cartoonization
     STYLE_TRANSFER,
     CUSTOM
 }
@@ -50,7 +51,8 @@ data class StyleConfig(
     val modelPath: String,
     val useGPU: Boolean = false,
     val inputSize: Int = 512,
-    val outputQuality: Int = 90
+    val outputQuality: Int = 90,
+    val enableUpscaling: Boolean = false
 )
 
 /**
@@ -60,7 +62,11 @@ sealed class ProcessingState {
     object Idle : ProcessingState()
     data class Loading(val message: String) : ProcessingState()
     data class Extracting(val progress: Int, val totalFrames: Int) : ProcessingState()
-    data class Transferring(val progress: Int, val totalFrames: Int) : ProcessingState()
+    data class Transferring(
+        val progress: Int, 
+        val totalFrames: Int,
+        val additionalInfo: String = ""
+    ) : ProcessingState()
     data class Reconstructing(val progress: Int) : ProcessingState()
     data class Complete(val outputFile: File) : ProcessingState()
     data class Error(val message: String, val exception: Throwable? = null) : ProcessingState()

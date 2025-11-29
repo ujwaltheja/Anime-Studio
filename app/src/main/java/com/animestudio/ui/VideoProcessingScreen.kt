@@ -153,8 +153,8 @@ fun VideoProcessingScreen(
                         is VideoProcessingUiState.VideoLoaded -> {
                             StyleSelectionScreen(
                                 videoData = state.videoData,
-                                onStyleSelected = { styleType ->
-                                    viewModel.processVideo(styleType)
+                                onStyleSelected = { styleType, enableUpscaling ->
+                                    viewModel.processVideo(styleType, enableUpscaling = enableUpscaling)
                                 },
                                 onCancel = { viewModel.reset() }
                             )
@@ -254,9 +254,11 @@ fun IdleScreen(
 @Composable
 fun StyleSelectionScreen(
     videoData: VideoData,
-    onStyleSelected: (StyleType) -> Unit,
+    onStyleSelected: (StyleType, Boolean) -> Unit,
     onCancel: () -> Unit
 ) {
+    var enableUpscaling by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -302,6 +304,39 @@ fun StyleSelectionScreen(
             }
         }
 
+        // Upscaling Option
+        GlassCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Enable 4K Upscaling",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Uses Real-ESRGAN (Slower)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                }
+                Switch(
+                    checked = enableUpscaling,
+                    onCheckedChange = { enableUpscaling = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Secondary,
+                        checkedTrackColor = Secondary.copy(alpha = 0.5f)
+                    )
+                )
+            }
+        }
+
         // Style options
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -311,7 +346,7 @@ fun StyleSelectionScreen(
             items(StyleType.values()) { styleType ->
                 StyleOptionCard(
                     styleType = styleType,
-                    onClick = { onStyleSelected(styleType) }
+                    onClick = { onStyleSelected(styleType, enableUpscaling) }
                 )
             }
         }
@@ -645,6 +680,7 @@ private fun getStyleDisplayName(styleType: StyleType): String {
         StyleType.HAYAO -> "Hayao Style"
         StyleType.SHINKAI -> "Shinkai Style"
         StyleType.PAPRIKA -> "Paprika Style"
+        StyleType.CEL_SHADED -> "Cel-Shaded Cartoon"
         StyleType.STYLE_TRANSFER -> "Style Transfer"
         StyleType.CUSTOM -> "Custom Style"
     }
@@ -657,6 +693,7 @@ private fun getStyleDescription(styleType: StyleType): String {
         StyleType.HAYAO -> "Whimsical & soft"
         StyleType.SHINKAI -> "Realistic & detailed"
         StyleType.PAPRIKA -> "Surreal & dreamlike"
+        StyleType.CEL_SHADED -> "Flat colors & sharp edges"
         StyleType.STYLE_TRANSFER -> "Artistic style transfer"
         StyleType.CUSTOM -> "Your custom model"
     }
@@ -669,6 +706,7 @@ private fun getStyleInitials(styleType: StyleType): String {
         StyleType.HAYAO -> "H"
         StyleType.SHINKAI -> "S"
         StyleType.PAPRIKA -> "P"
+        StyleType.CEL_SHADED -> "CS"
         StyleType.STYLE_TRANSFER -> "ST"
         StyleType.CUSTOM -> "?"
     }
@@ -681,6 +719,7 @@ private fun getStyleColor(styleType: StyleType): Color {
         StyleType.HAYAO -> Color(0xFF4CAF50)
         StyleType.SHINKAI -> Color(0xFF9C27B0)
         StyleType.PAPRIKA -> Color(0xFFE91E63)
+        StyleType.CEL_SHADED -> Color(0xFF00BCD4)  // Cyan for cel-shaded
         StyleType.STYLE_TRANSFER -> Color(0xFFFF5722)
         StyleType.CUSTOM -> Color(0xFF607D8B)
     }

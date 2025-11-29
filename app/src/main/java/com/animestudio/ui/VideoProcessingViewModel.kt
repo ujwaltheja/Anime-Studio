@@ -51,7 +51,11 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
     /**
      * Start video processing with selected style and duration
      */
-    fun processVideo(styleType: StyleType, duration: VideoDuration = VideoDuration.ONE_MINUTE) {
+    fun processVideo(
+        styleType: StyleType, 
+        duration: VideoDuration = VideoDuration.ONE_MINUTE,
+        enableUpscaling: Boolean = false
+    ) {
         val videoData = currentVideoData ?: run {
             _uiState.value = VideoProcessingUiState.Error("No video loaded")
             return
@@ -79,7 +83,8 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
                 modelPath = modelPath,
                 useGPU = false,  // Disabled by default to avoid crashes
                 inputSize = inputSize,
-                outputQuality = 90
+                outputQuality = 90,
+                enableUpscaling = enableUpscaling
             )
 
             // Prepare output file
@@ -166,6 +171,7 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
             StyleType.ANIME_GAN -> "models/animegan.tflite"
             StyleType.HAYAO -> "models/animeganv3_hayao.tflite"
             StyleType.SHINKAI -> "models/animeganv3_shinkai.tflite"
+            StyleType.CEL_SHADED -> "models/whitebox_cartoon.tflite"
             // Fallback to Shinkai/Hayao for missing models
             StyleType.PAPRIKA -> "models/animeganv3_shinkai.tflite" 
             StyleType.STYLE_TRANSFER -> "models/style_transfer.tflite"

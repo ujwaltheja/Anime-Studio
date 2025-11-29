@@ -4,6 +4,9 @@ import android.content.Context
 import com.animestudio.domain.*
 import com.animestudio.frameextraction.FrameExtractorImpl
 import com.animestudio.ml.StyleTransferEngineImpl
+import com.animestudio.ml.WhiteboxCartoonizer  // NEW - Phase 2
+import com.animestudio.ml.RealESRGANUpscaler   // NEW - Phase 2
+import com.animestudio.models.ModelManager  // NEW - Phase 2
 import com.animestudio.videoreconstruction.VideoReconstructorImpl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -19,6 +22,15 @@ class VideoProcessorImpl(
     private val styleTransferEngine: StyleTransferEngine,
     private val videoReconstructor: VideoReconstructor
 ) : VideoProcessor {
+
+    // NEW - Phase 2: Advanced style processors
+    private val modelManager by lazy { ModelManager(context) }
+    private val whiteboxCartoonizer by lazy {
+        WhiteboxCartoonizer(context, modelManager)
+    }
+    private val realESRGANUpscaler by lazy {
+        RealESRGANUpscaler(context, modelManager)
+    }
 
     @Volatile
     private var isCancelled = false
@@ -93,15 +105,66 @@ class VideoProcessorImpl(
 
             send(ProcessingState.Loading("Applying style transfer..."))
 
-            // 3. Apply style transfer to all frames
-            val styledFramesResult = styleTransferEngine.transferStyleBatch(
-                frames = frames,
-                onProgress = { current, total ->
-                    if (!isCancelled) {
-                        trySend(ProcessingState.Transferring(current, total))
+            // 3. Apply style transfer (NEW: Support for White-box Cartoonization)
+            val styledFramesResult = when (styleConfig.styleType) {
+                
+                // NEW - Phase 2: Cel-Shaded Cartoon style
+                StyleType.CEL_SHADED -> {
+                    send(ProcessingState.Loading("Preparing cel-shaded filter..."))
+                    
+                    // Initialize White-box if needed
+                    if (!whiteboxCartoonizer.isReady()) {
+                        when (val initResult = whiteboxCartoonizer.initialize { progress ->
+                            trySend(ProcessingState.Loading("Downloading model: $progress%"))
+                        }) {
+                            is Result.Success -> {
+                                send(ProcessingState.Loading("White-box initialized"))
+                            }
+                            is Result.Error -> {
+                                cleanup(workDir)
+                                send(ProcessingState.Error(
+                                    "Failed to initialize cel-shaded filter: ${initResult.message}",
+                                    initResult.exception
+                                ))
+                                return@channelFlow
+                            }
+                            else -> {}
+                        }
                     }
+                    
+                    if (checkCancelled()) {
+                        cleanup(workDir)
+                        send(ProcessingState.Error("Processing cancelled"))
+                        return@channelFlow
+                    }
+                    
+                    // Process frames with White-box
+                    whiteboxCartoonizer.cartoonizeBatch(
+                        frames = frames,
+                        onProgress = { current, total ->
+                            if (!isCancelled) {
+                                trySend(ProcessingState.Transferring(
+                                    current,
+                                    total,
+                                    "Cel-shading $current/$total"
+                                ))
+                            }
+                        }
+                    )
                 }
-            )
+                
+                // Existing styles - use original style transfer engine
+                else -> {
+                    styleTransferEngine.transferStyleBatch(
+                        frames = frames,
+                        onProgress = { current, total ->
+                            if (!isCancelled) {
+                                trySend(ProcessingState.Transferring(current, total))
+                            }
+                        }
+                    )
+                }
+            }
 
             val styledFrames = when (styledFramesResult) {
                 is Result.Success -> styledFramesResult.data
@@ -115,6 +178,81 @@ class VideoProcessorImpl(
                     send(ProcessingState.Error("Unknown error during style transfer"))
                     return@channelFlow
                 }
+            }
+
+            if (checkCancelled()) {
+                cleanup(workDir)
+                send(ProcessingState.Error("Processing cancelled"))
+                return@channelFlow
+            }
+
+            // 3.5 Upscaling (NEW - Phase 2)
+            val finalFrames = if (styleConfig.enableUpscaling) {
+                send(ProcessingState.Loading("Upscaling to 4K (Real-ESRGAN)..."))
+                
+                // Initialize Upscaler
+                if (!realESRGANUpscaler.isReady()) {
+                    when (val initResult = realESRGANUpscaler.initialize { progress ->
+                        trySend(ProcessingState.Loading("Downloading upscaler: $progress%"))
+                    }) {
+                        is Result.Error -> {
+                            cleanup(workDir)
+                            send(ProcessingState.Error("Failed to initialize upscaler: ${initResult.message}"))
+                            return@channelFlow
+                        }
+                        else -> {}
+                    }
+                }
+
+                val upscaledFrames = mutableListOf<FrameData>()
+                val totalFrames = styledFrames.size
+                
+                styledFrames.forEachIndexed { index, frame ->
+                    if (checkCancelled()) {
+                        cleanup(workDir)
+                        send(ProcessingState.Error("Processing cancelled"))
+                        return@channelFlow
+                    }
+
+                    // Load bitmap
+                    val bitmap = android.graphics.BitmapFactory.decodeFile(frame.file?.absolutePath)
+                    if (bitmap != null) {
+                        when (val result = realESRGANUpscaler.upscale(bitmap)) {
+                            is Result.Success -> {
+                                // Save upscaled frame
+                                val upscaledFile = File(styledFramesDir, "upscaled_${frame.file?.name}")
+                                val outStream = java.io.FileOutputStream(upscaledFile)
+                                result.data.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, outStream)
+                                outStream.close()
+                                result.data.recycle()
+                                bitmap.recycle()
+                                
+                                upscaledFrames.add(frame.copy(file = upscaledFile))
+                                
+                                trySend(ProcessingState.Transferring(
+                                    index + 1, 
+                                    totalFrames, 
+                                    "Upscaling ${index + 1}/$totalFrames"
+                                ))
+                            }
+                            is Result.Error -> {
+                                // Fallback to original if upscaling fails
+                                upscaledFrames.add(frame)
+                                bitmap.recycle()
+                            }
+                            else -> {
+                                // Handle Loading or other states if any
+                                upscaledFrames.add(frame)
+                                bitmap.recycle()
+                            }
+                        }
+                    } else {
+                        upscaledFrames.add(frame)
+                    }
+                }
+                upscaledFrames
+            } else {
+                styledFrames
             }
 
             if (checkCancelled()) {
@@ -149,7 +287,7 @@ class VideoProcessorImpl(
 
             // 5. Reconstruct video from styled frames
             val reconstructResult = videoReconstructor.reconstructVideo(
-                frames = styledFrames,
+                frames = finalFrames,
                 audioFile = audioFile,
                 outputFile = outputFile,
                 frameRate = videoData.frameRate,
@@ -179,7 +317,14 @@ class VideoProcessorImpl(
             e.printStackTrace()
             send(ProcessingState.Error("Unexpected error during processing: ${e.message}", e))
         } finally {
+            // Cleanup all engines
             styleTransferEngine.release()
+            if (whiteboxCartoonizer.isReady()) {
+                whiteboxCartoonizer.release()
+            }
+            if (realESRGANUpscaler.isReady()) {
+                realESRGANUpscaler.release()
+            }
         }
     }
 

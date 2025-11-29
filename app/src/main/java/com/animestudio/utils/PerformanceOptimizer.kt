@@ -39,7 +39,7 @@ object PerformanceOptimizer {
     /**
      * Get memory status
      */
-    fun getMemoryStatus(context: Context): MemoryStatus {
+    fun getMemoryStatus(context: Context?): MemoryStatus {
         val runtime = Runtime.getRuntime()
         val maxMemory = runtime.maxMemory() / 1024 / 1024
         val totalMemory = runtime.totalMemory() / 1024 / 1024
@@ -122,7 +122,7 @@ object PerformanceOptimizer {
      * Get native heap size
      */
     fun getNativeHeapSizeMB(): Long {
-        return Debug.getNativeHeap().size / 1024 / 1024
+        return Debug.getNativeHeapAllocatedSize() / 1024 / 1024
     }
 
     /**

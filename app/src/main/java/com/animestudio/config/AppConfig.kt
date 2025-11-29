@@ -118,6 +118,14 @@ object AppConfig {
                     version = AnimeGANv3.VERSION,
                     estimatedTimeMs = AnimeGANv3.AVG_INFERENCE_TIME_MS
                 )
+                StyleType.CEL_SHADED -> ModelInfo(
+                    name = "Cel-Shaded Cartoon",
+                    path = "models/whitebox_cartoon.tflite",
+                    size = 2.5f,  // 2.5 MB from research
+                    inputSize = 512,
+                    version = "1.0",
+                    estimatedTimeMs = 120  // ~120ms from research
+                )
                 StyleType.CARTOON_GAN -> ModelInfo(
                     name = "CartoonGAN",
                     path = CartoonGAN.PATH,
