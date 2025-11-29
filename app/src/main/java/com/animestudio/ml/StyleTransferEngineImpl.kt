@@ -112,18 +112,41 @@ class StyleTransferEngineImpl(
     override suspend fun transferStyle(frame: FrameData): Result<FrameData> = withContext(Dispatchers.IO) {
         try {
             val interpreter = this@StyleTransferEngineImpl.interpreter
-                ?: return@withContext Result.Error("Model not initialized")
+                ?: return@withContext Result.Error("Model not initialized. Please ensure the style transfer engine is properly initialized before processing frames.")
 
             // Load frame bitmap
-            val inputBitmap = frame.file?.let { BitmapFactory.decodeFile(it.absolutePath) }
-                ?: frame.bitmap
-                ?: return@withContext Result.Error("No bitmap data available")
+            val inputBitmap = when {
+                frame.file?.exists() == true -> {
+                    try {
+                        BitmapFactory.decodeFile(frame.file.absolutePath)
+                            ?: return@withContext Result.Error("Failed to decode bitmap from file: ${frame.file.absolutePath}")
+                    } catch (e: Exception) {
+                        return@withContext Result.Error("Error loading frame bitmap: ${e.message}", e)
+                    }
+                }
+                frame.bitmap != null -> frame.bitmap
+                else -> return@withContext Result.Error("No bitmap data available for frame ${frame.frameNumber}")
+            }
+
+            val originalWidth = inputBitmap.width
+            val originalHeight = inputBitmap.height
 
             // Preprocess: resize to model input size
-            val resizedBitmap = Bitmap.createScaledBitmap(inputBitmap, inputWidth, inputHeight, true)
+            val resizedBitmap = try {
+                Bitmap.createScaledBitmap(inputBitmap, inputWidth, inputHeight, true)
+            } catch (e: OutOfMemoryError) {
+                if (frame.bitmap == null) inputBitmap.recycle()
+                return@withContext Result.Error("Out of memory while resizing frame ${frame.frameNumber}. Try reducing video quality or processing fewer frames.", e)
+            }
 
             // Convert bitmap to ByteBuffer
-            val inputBuffer = bitmapToByteBuffer(resizedBitmap)
+            val inputBuffer = try {
+                bitmapToByteBuffer(resizedBitmap)
+            } catch (e: Exception) {
+                if (resizedBitmap != inputBitmap) resizedBitmap.recycle()
+                if (frame.bitmap == null) inputBitmap.recycle()
+                return@withContext Result.Error("Error converting bitmap to buffer for frame ${frame.frameNumber}: ${e.message}", e)
+            }
 
             // Prepare output buffer
             val outputBuffer = ByteBuffer.allocateDirect(4 * inputWidth * inputHeight * pixelSize).apply {
@@ -131,34 +154,84 @@ class StyleTransferEngineImpl(
             }
 
             // Run inference
-            interpreter.run(inputBuffer, outputBuffer)
-
-            // Convert output buffer to bitmap
-            val outputBitmap = byteBufferToBitmap(outputBuffer, inputWidth, inputHeight)
-
-            // Resize back to original dimensions if needed
-            val finalBitmap = if (inputBitmap.width != inputWidth || inputBitmap.height != inputHeight) {
-                Bitmap.createScaledBitmap(outputBitmap, inputBitmap.width, inputBitmap.height, true)
-            } else {
-                outputBitmap
+            try {
+                interpreter.run(inputBuffer, outputBuffer)
+            } catch (e: Exception) {
+                if (resizedBitmap != inputBitmap) resizedBitmap.recycle()
+                if (frame.bitmap == null) inputBitmap.recycle()
+                return@withContext Result.Error("Model inference failed for frame ${frame.frameNumber}: ${e.message}. The model may be corrupted or incompatible.", e)
             }
 
+            // Convert output buffer to bitmap
+            val outputBitmap = try {
+                byteBufferToBitmap(outputBuffer, inputWidth, inputHeight)
+            } catch (e: Exception) {
+                if (resizedBitmap != inputBitmap) resizedBitmap.recycle()
+                if (frame.bitmap == null) inputBitmap.recycle()
+                return@withContext Result.Error("Error converting output buffer to bitmap for frame ${frame.frameNumber}: ${e.message}", e)
+            }
+
+            // Resize back to original dimensions if needed
+            val finalBitmap = try {
+                if (originalWidth != inputWidth || originalHeight != inputHeight) {
+                    Bitmap.createScaledBitmap(outputBitmap, originalWidth, originalHeight, true)
+                } else {
+                    outputBitmap
+                }
+            } catch (e: OutOfMemoryError) {
+                outputBitmap.recycle()
+                if (resizedBitmap != inputBitmap) resizedBitmap.recycle()
+                if (frame.bitmap == null) inputBitmap.recycle()
+                return@withContext Result.Error("Out of memory while resizing output for frame ${frame.frameNumber}", e)
+            }
+
+            // Determine output directory and file name
+            val outputDir = frame.file?.parentFile ?: File(context.cacheDir, "styled_frames").apply { mkdirs() }
+            val outputFileName = if (frame.file != null) {
+                "styled_${frame.file.name}"
+            } else {
+                "styled_frame_${String.format("%05d", frame.frameNumber)}.jpg"
+            }
+            val outputFile = File(outputDir, outputFileName)
+
             // Save to file
-            val outputFile = File(
-                frame.file?.parentFile,
-                "styled_${frame.file?.name ?: "frame_${frame.index}.jpg"}"
-            )
+            try {
+                saveBitmapToFile(finalBitmap, outputFile, currentConfig?.outputQuality ?: 90)
+            } catch (e: Exception) {
+                finalBitmap.recycle()
+                if (outputBitmap != finalBitmap) outputBitmap.recycle()
+                if (resizedBitmap != inputBitmap) resizedBitmap.recycle()
+                if (frame.bitmap == null) inputBitmap.recycle()
+                return@withContext Result.Error("Error saving styled frame ${frame.frameNumber} to file: ${e.message}", e)
+            }
 
-            saveBitmapToFile(finalBitmap, outputFile, currentConfig?.outputQuality ?: 90)
+            // Verify file was saved
+            if (!outputFile.exists() || outputFile.length() == 0L) {
+                finalBitmap.recycle()
+                if (outputBitmap != finalBitmap) outputBitmap.recycle()
+                if (resizedBitmap != inputBitmap) resizedBitmap.recycle()
+                if (frame.bitmap == null) inputBitmap.recycle()
+                return@withContext Result.Error("Failed to save frame ${frame.frameNumber} - output file is empty or doesn't exist")
+            }
 
-            // Clean up
+            // Clean up bitmaps
+            finalBitmap.recycle()
+            if (outputBitmap != finalBitmap) outputBitmap.recycle()
             if (resizedBitmap != inputBitmap) resizedBitmap.recycle()
-            outputBitmap.recycle()
             if (frame.bitmap == null) inputBitmap.recycle()
 
-            Result.Success(frame.copy(file = outputFile))
+            // Return success with updated frame data
+            Result.Success(
+                frame.copy(
+                    file = outputFile,
+                    bitmap = null // Don't keep bitmap in memory after saving
+                )
+            )
+        } catch (e: OutOfMemoryError) {
+            System.gc() // Suggest garbage collection
+            Result.Error("Out of memory while processing frame ${frame.frameNumber}. Try closing other apps or reducing video quality.", e)
         } catch (e: Exception) {
-            Result.Error("Failed to transfer style for frame ${frame.index}", e)
+            Result.Error("Unexpected error processing frame ${frame.frameNumber}: ${e.message}", e)
         }
     }
 
@@ -309,6 +382,7 @@ class StyleTransferEngineImpl(
 
     /**
      * Convert bitmap to ByteBuffer for model input
+     * Fixed: Proper pixel ordering and channel extraction
      */
     private fun bitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
         val byteBuffer = ByteBuffer.allocateDirect(4 * inputWidth * inputHeight * pixelSize).apply {
@@ -316,25 +390,30 @@ class StyleTransferEngineImpl(
         }
 
         val intValues = IntArray(inputWidth * inputHeight)
-        bitmap.getPixels(intValues, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        bitmap.getPixels(intValues, 0, inputWidth, 0, 0, inputWidth, inputHeight)
 
-        var pixel = 0
-        for (i in 0 until inputHeight) {
-            for (j in 0 until inputWidth) {
-                val value = intValues[pixel++]
+        // Process pixels in correct order
+        for (pixel in intValues) {
+            // Extract RGB channels from ARGB pixel
+            // Format: 0xAARRGGBB
+            val r = (pixel shr 16) and 0xFF
+            val g = (pixel shr 8) and 0xFF
+            val b = pixel and 0xFF
 
-                // Normalize to [-1, 1] or [0, 1] depending on model
-                byteBuffer.putFloat(((value shr 16 and 0xFF) - imageMean) / imageStdDev)
-                byteBuffer.putFloat(((value shr 8 and 0xFF) - imageMean) / imageStdDev)
-                byteBuffer.putFloat(((value and 0xFF) - imageMean) / imageStdDev)
-            }
+            // Normalize to [-1, 1] range for AnimeGAN models
+            // Formula: (pixel_value / 255.0 - 0.5) * 2.0 or (pixel - 127.5) / 127.5
+            byteBuffer.putFloat((r - imageMean) / imageStdDev)
+            byteBuffer.putFloat((g - imageMean) / imageStdDev)
+            byteBuffer.putFloat((b - imageMean) / imageStdDev)
         }
 
+        byteBuffer.rewind()
         return byteBuffer
     }
 
     /**
      * Convert ByteBuffer to Bitmap for model output
+     * Fixed: Proper denormalization and pixel packing
      */
     private fun byteBufferToBitmap(byteBuffer: ByteBuffer, width: Int, height: Int): Bitmap {
         byteBuffer.rewind()
@@ -343,10 +422,18 @@ class StyleTransferEngineImpl(
         val pixels = IntArray(width * height)
 
         for (i in pixels.indices) {
-            val r = ((byteBuffer.float * imageStdDev + imageMean).toInt()).coerceIn(0, 255)
-            val g = ((byteBuffer.float * imageStdDev + imageMean).toInt()).coerceIn(0, 255)
-            val b = ((byteBuffer.float * imageStdDev + imageMean).toInt()).coerceIn(0, 255)
+            // Read normalized float values from buffer (range [-1, 1])
+            val rFloat = byteBuffer.float
+            val gFloat = byteBuffer.float
+            val bFloat = byteBuffer.float
 
+            // Denormalize from [-1, 1] to [0, 255]
+            // Formula: (normalized_value * 127.5 + 127.5)
+            val r = (rFloat * imageStdDev + imageMean).toInt().coerceIn(0, 255)
+            val g = (gFloat * imageStdDev + imageMean).toInt().coerceIn(0, 255)
+            val b = (bFloat * imageStdDev + imageMean).toInt().coerceIn(0, 255)
+
+            // Pack into ARGB format
             pixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
         }
 

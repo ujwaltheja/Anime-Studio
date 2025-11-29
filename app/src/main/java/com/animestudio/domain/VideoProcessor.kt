@@ -14,7 +14,8 @@ interface VideoProcessor {
     fun processVideo(
         videoData: VideoData,
         styleConfig: StyleConfig,
-        outputFile: File
+        outputFile: File,
+        durationLimitMs: Long? = null
     ): Flow<ProcessingState>
 
     /**
@@ -65,11 +66,13 @@ interface FrameExtractor {
     /**
      * Extract all frames from video
      * @param extractionInterval Extract frame every N milliseconds (default: every frame)
+     * @param durationLimitMs Limit extraction to the first N milliseconds of video
      */
     suspend fun extractFrames(
         videoData: VideoData,
         outputDir: File,
         extractionInterval: Long = 0L,
+        durationLimitMs: Long? = null,
         onProgress: (Int, Int) -> Unit = { _, _ -> }
     ): Result<List<FrameData>>
 

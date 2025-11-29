@@ -49,12 +49,9 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
     }
 
     /**
-     * Start video processing with selected style
+     * Start video processing with selected style and duration
      */
-    /**
-     * Start video processing with selected style
-     */
-    fun processVideo(styleType: StyleType) {
+    fun processVideo(styleType: StyleType, duration: VideoDuration = VideoDuration.ONE_MINUTE) {
         val videoData = currentVideoData ?: run {
             _uiState.value = VideoProcessingUiState.Error("No video loaded")
             return
@@ -65,19 +62,23 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
         // Check if model exists
         if (!checkModelExists(modelPath)) {
             _uiState.value = VideoProcessingUiState.Error(
-                message = "Model not found: $modelPath.\nPlease download the models to continue.",
+                message = "Model not found: $modelPath.\nPlease run download_models.ps1 in assets/models/ to get the latest models.",
                 action = ErrorAction.DOWNLOAD_MODELS
             )
             return
         }
 
         viewModelScope.launch {
+            // Determine input size based on model version
+            // AnimeGANv3 uses 512x512, AnimeGANv2 uses 256x256
+            val inputSize = if (modelPath.contains("animeganv3")) 512 else 256
+
             // Configure style
             val styleConfig = StyleConfig(
                 styleType = styleType,
                 modelPath = modelPath,
                 useGPU = false,  // Disabled by default to avoid crashes
-                inputSize = 512,
+                inputSize = inputSize,
                 outputQuality = 90
             )
 
@@ -87,7 +88,7 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
             val outputFile = File(outputDir, "styled_video_${System.currentTimeMillis()}.mp4")
 
             // Process video
-            videoProcessor.processVideo(videoData, styleConfig, outputFile)
+            videoProcessor.processVideo(videoData, styleConfig, outputFile, duration.limitMs)
                 .collect { state ->
                     when (state) {
                         is ProcessingState.Idle -> {
@@ -163,13 +164,20 @@ class VideoProcessingViewModel(application: Application) : AndroidViewModel(appl
         return when (styleType) {
             StyleType.CARTOON_GAN -> "models/cartoongan.tflite"
             StyleType.ANIME_GAN -> "models/animegan.tflite"
-            StyleType.HAYAO -> "models/hayao.tflite"
-            StyleType.SHINKAI -> "models/shinkai.tflite"
-            StyleType.PAPRIKA -> "models/paprika.tflite"
+            StyleType.HAYAO -> "models/animeganv3_hayao.tflite"
+            StyleType.SHINKAI -> "models/animeganv3_shinkai.tflite"
+            // Fallback to Shinkai/Hayao for missing models
+            StyleType.PAPRIKA -> "models/animeganv3_shinkai.tflite" 
             StyleType.STYLE_TRANSFER -> "models/style_transfer.tflite"
-            StyleType.CUSTOM -> "models/custom.tflite"
+            StyleType.CUSTOM -> "models/animeganv3_hayao.tflite"
         }
     }
+}
+
+enum class VideoDuration(val limitMs: Long) {
+    ONE_MINUTE(60000),
+    THREE_MINUTES(180000),
+    FIVE_MINUTES(300000)
 }
 
 /**

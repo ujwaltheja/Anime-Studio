@@ -26,7 +26,8 @@ class VideoProcessorImpl(
     override fun processVideo(
         videoData: VideoData,
         styleConfig: StyleConfig,
-        outputFile: File
+        outputFile: File,
+        durationLimitMs: Long?
     ): Flow<ProcessingState> = channelFlow {
         isCancelled = false
 
@@ -62,6 +63,7 @@ class VideoProcessorImpl(
                 videoData = videoData,
                 outputDir = framesDir,
                 extractionInterval = 0L, // Extract all frames
+                durationLimitMs = durationLimitMs,
                 onProgress = { current, total ->
                     if (!isCancelled) {
                         trySend(ProcessingState.Extracting(current, total))

@@ -2,62 +2,44 @@
 
 This directory contains TensorFlow Lite models for anime/cartoon style transfer.
 
-## Currently Installed Models
+## High-Quality Models (AnimeGANv2)
 
-### 1. CartoonGAN (cartoongan.tflite)
-- **Size**: 1.8 MB
-- **Source**: TensorFlow Hub - CartoonGAN
-- **Style**: Classic cartoon/whitebox cartoonization
-- **Input**: 512x512 RGB image
-- **Format**: INT8 quantized
-- **Best for**: Converting photos to cartoon-style artwork
+To get the best results, run the `download_models.ps1` script in this directory. It will download the official AnimeGANv2 models from the PINTO Model Zoo.
 
-### 2. Arbitrary Style Transfer (style_transfer.tflite)
-- **Size**: 2.7 MB
-- **Source**: TensorFlow Hub - Magenta Style Transfer
-- **Style**: Arbitrary artistic style transfer
-- **Input**: 256x256 RGB image
-- **Format**: INT8 quantized
-- **Best for**: General-purpose style transfer with custom style images
-
-### 3. AnimeGAN (animegan.tflite)
-- **Size**: 2.2 MB
+### 1. Hayao Style (animeganv2_hayao.tflite)
 - **Source**: PINTO Model Zoo - AnimeGANv2
-- **Style**: General anime style conversion
-- **Input**: 256x256 RGB image
-- **Format**: Weight quantized
-- **Best for**: Modern vibrant anime style
-
-### 4. Hayao Style (hayao.tflite)
-- **Size**: 2.2 MB
-- **Source**: PINTO Model Zoo - AnimeGANv2 Hayao
 - **Style**: Miyazaki Hayao / Studio Ghibli inspired
 - **Input**: 256x256 RGB image
-- **Format**: Weight quantized
-- **Best for**: Whimsical, soft, Ghibli-style backgrounds
+- **Best for**: Whimsical, soft, Ghibli-style backgrounds. High quality.
 
-### 5. Shinkai Style (shinkai.tflite)
-- **Size**: 2.2 MB
-- **Source**: AnimeGANv2 Hayao (placeholder)
+### 2. Shinkai Style (animeganv2_shinkai.tflite)
+- **Source**: PINTO Model Zoo - AnimeGANv2
 - **Style**: Makoto Shinkai inspired ("Your Name", "Weathering with You")
 - **Input**: 256x256 RGB image
-- **Format**: Weight quantized
-- **Best for**: Realistic, detailed, photorealistic anime backgrounds
-- **Note**: Currently using Hayao model as placeholder. For authentic Shinkai style, convert from checkpoint at https://github.com/TachibanaYoshino/AnimeGANv2
+- **Best for**: Realistic, detailed, photorealistic anime backgrounds.
 
-### 6. Paprika Style (paprika.tflite)
-- **Size**: 2.2 MB
-- **Source**: PINTO Model Zoo - AnimeGANv2 Paprika
+### 3. Paprika Style (animeganv2_paprika.tflite)
+- **Source**: PINTO Model Zoo - AnimeGANv2
 - **Style**: Satoshi Kon's Paprika inspired
 - **Input**: 256x256 RGB image
-- **Format**: Weight quantized
-- **Best for**: Surreal, dreamlike anime visuals
+- **Best for**: Surreal, dreamlike anime visuals.
 
-### 7. Custom Style (custom.tflite)
-- **Size**: 1.8 MB (currently CartoonGAN copy)
-- **Source**: User-provided
-- **Style**: Your custom trained model
-- **Best for**: Replace with your own trained style transfer model
+### 4. CartoonGAN (cartoongan.tflite)
+- **Source**: TensorFlow Hub
+- **Style**: Classic cartoon/whitebox cartoonization
+- **Input**: 512x512 RGB image
+- **Best for**: Converting photos to cartoon-style artwork.
+
+## Legacy Models
+
+- **animegan.tflite**: Older AnimeGAN version.
+- **style_transfer.tflite**: Generic artistic style transfer.
+
+## How to Download Models
+
+1. Open PowerShell in this directory: `app/src/main/assets/models/`
+2. Run: `.\download_models.ps1`
+3. Rebuild the app.
 
 ## Model Sources
 

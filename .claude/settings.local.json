@@ -23,7 +23,9 @@
       "Bash(adb kill-server:*)",
       "Bash(adb start-server:*)",
       "Bash(md5sum app/build/outputs/apk/debug/app-debug.apk)",
-      "Bash(certutil -hashfile:*)"
+      "Bash(certutil -hashfile:*)",
+      "Bash(tree:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

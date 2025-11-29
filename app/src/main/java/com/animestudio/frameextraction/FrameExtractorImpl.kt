@@ -7,6 +7,8 @@ import com.animestudio.domain.FrameData
 import com.animestudio.domain.FrameExtractor
 import com.animestudio.domain.Result
 import com.animestudio.domain.VideoData
+import com.animestudio.utils.Logger
+import com.animestudio.utils.PerformanceOptimizer
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.ReturnCode
 import kotlinx.coroutines.Dispatchers
@@ -39,47 +41,135 @@ class FrameExtractorImpl(
         videoData: VideoData,
         outputDir: File,
         extractionInterval: Long,
+        durationLimitMs: Long?,
         onProgress: (Int, Int) -> Unit
     ): Result<List<FrameData>> = withContext(Dispatchers.IO) {
         isCancelled = false
-        var retriever: MediaMetadataRetriever? = null
-        val extractedFrames = mutableListOf<FrameData>()
-
+        
         try {
             if (!outputDir.exists()) {
                 outputDir.mkdirs()
             }
 
-            // Safety check: Limit video duration to 60 seconds for processing
-            if (videoData.duration > 60000) {
-                return@withContext Result.Error(
-                    "Video too long (${videoData.duration / 1000}s). Please use videos shorter than 60 seconds for processing."
-                )
+            // Determine duration to process
+            val durationToProcess = if (durationLimitMs != null && durationLimitMs > 0) {
+                durationLimitMs.coerceAtMost(videoData.duration)
+            } else {
+                videoData.duration
             }
 
+            // Try FFmpeg first (Preferred)
+            val ffmpegResult = extractFramesWithFFmpegInternal(videoData, outputDir, durationToProcess, onProgress)
+            if (ffmpegResult is Result.Success) {
+                return@withContext ffmpegResult
+            }
+
+            // Fallback to MediaMetadataRetriever
+            Logger.w("FrameExtractor", "FFmpeg extraction failed, falling back to MediaMetadataRetriever...")
+            extractFramesWithRetriever(videoData, outputDir, extractionInterval, durationToProcess, onProgress)
+
+        } catch (e: Exception) {
+            Result.Error("Failed to extract frames", e)
+        }
+    }
+
+    private suspend fun extractFramesWithFFmpegInternal(
+        videoData: VideoData,
+        outputDir: File,
+        durationMs: Long,
+        onProgress: (Int, Int) -> Unit
+    ): Result<List<FrameData>> {
+        val inputPath = try {
+            // If URI is file://, use it directly. Otherwise copy to temp.
+            if (videoData.uri.scheme == "file") {
+                 videoData.uri.path ?: throw Exception("Invalid file URI")
+            } else {
+                val file = File(context.cacheDir, "temp_input_video_frames.mp4")
+                context.contentResolver.openInputStream(videoData.uri)?.use { input ->
+                    FileOutputStream(file).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                file.absolutePath
+            }
+        } catch (e: Exception) {
+            return Result.Error("Failed to prepare video file for FFmpeg")
+        }
+
+        // Calculate expected frames
+        val frameRate = if (videoData.frameRate > 0) videoData.frameRate else 30f
+        val expectedFrames = (durationMs / 1000f * frameRate).toInt()
+        
+        // Command: -t [duration] -i [input] -vf fps=[fps] [output_pattern]
+        // -t specifies duration in seconds
+        val durationSec = durationMs / 1000.0
+        val command = "-y -t $durationSec -i \"$inputPath\" -vf fps=$frameRate \"${outputDir.absolutePath}/frame_%05d.jpg\""
+
+        Logger.d("FrameExtractor", "Executing FFmpeg command: $command")
+
+        // Execute synchronously
+        val startTime = System.currentTimeMillis()
+        val session = FFmpegKit.execute(command)
+        val duration = System.currentTimeMillis() - startTime
+        Logger.logPerformance("FrameExtractor", "FFmpeg frame extraction", duration)
+
+        // Cleanup temp file if we created one
+        if (videoData.uri.scheme != "file") {
+            File(inputPath).delete()
+        }
+
+        if (ReturnCode.isSuccess(session.getReturnCode())) {
+            val files = outputDir.listFiles()?.sorted()?.toList() ?: emptyList()
+            val frameDataList = files.mapIndexed { index, file ->
+                FrameData(
+                    frameNumber = index,
+                    timestamp = (index * 1000 / frameRate).toLong(),
+                    bitmap = null,
+                    file = file
+                )
+            }
+            onProgress(frameDataList.size, frameDataList.size)
+            return Result.Success(frameDataList)
+        } else {
+            val logs = session.allLogsAsString
+            return Result.Error("FFmpeg frame extraction failed. Logs: $logs")
+        }
+    }
+
+    private suspend fun extractFramesWithRetriever(
+        videoData: VideoData,
+        outputDir: File,
+        extractionInterval: Long,
+        durationMs: Long,
+        onProgress: (Int, Int) -> Unit
+    ): Result<List<FrameData>> {
+        var retriever: MediaMetadataRetriever? = null
+        val extractedFrames = mutableListOf<FrameData>()
+
+        try {
             retriever = MediaMetadataRetriever()
             retriever.setDataSource(context, videoData.uri)
 
-            val duration = videoData.duration * 1000 // Convert to microseconds
-            val interval = if (extractionInterval > 0) {
-                extractionInterval * 1000 // Convert to microseconds
+            val durationUs = durationMs * 1000 // Convert to microseconds
+            
+            // Calculate interval based on frame rate if not specified
+            val intervalUs = if (extractionInterval > 0) {
+                extractionInterval * 1000
             } else {
-                // Extract frames every 100ms (10 fps max) to avoid memory issues
-                // Full frame rate extraction can cause crashes
-                100000L // 100ms = 0.1 seconds
+                val fps = if (videoData.frameRate > 0) videoData.frameRate else 30f
+                (1000000 / fps).toLong()
             }
 
-            var currentTime = 0L
+            var currentTimeUs = 0L
             var frameIndex = 0
-            val totalFrames = (duration / interval).toInt().coerceAtMost(300) // Max 300 frames
+            val totalFrames = (durationUs / intervalUs).toInt()
 
-            println("FrameExtractor: Starting extraction of ~$totalFrames frames")
+            Logger.i("FrameExtractor", "Starting extraction of ~$totalFrames frames using Retriever")
 
-            while (currentTime < duration && coroutineContext.isActive && !isCancelled) {
+            while (currentTimeUs < durationUs && coroutineContext.isActive && !isCancelled) {
                 try {
-                    // Use OPTION_CLOSEST instead of OPTION_CLOSEST_SYNC for better compatibility
                     val bitmap = retriever.getFrameAtTime(
-                        currentTime,
+                        currentTimeUs,
                         MediaMetadataRetriever.OPTION_CLOSEST
                     )
 
@@ -90,53 +180,44 @@ class FrameExtractorImpl(
 
                             val frameData = FrameData(
                                 frameNumber = frameIndex,
-                                timestamp = currentTime,
-                                bitmap = null, // Don't keep bitmaps in memory
+                                timestamp = currentTimeUs / 1000,
+                                bitmap = null,
                                 file = frameFile
                             )
 
                             extractedFrames.add(frameData)
                             onProgress(frameIndex + 1, totalFrames)
-
-                            println("FrameExtractor: Extracted frame $frameIndex at ${currentTime / 1000}ms")
                             frameIndex++
                         } finally {
-                            // Always recycle bitmap to avoid memory leaks
                             bitmap.recycle()
                         }
                     } else {
-                        println("FrameExtractor: Failed to get bitmap at ${currentTime / 1000}ms")
+                        Logger.w("FrameExtractor", "Failed to get bitmap at ${currentTimeUs / 1000}ms")
                     }
 
-                    currentTime += interval
+                    currentTimeUs += intervalUs
                 } catch (e: OutOfMemoryError) {
-                    // Critical: Out of memory, stop extraction
-                    println("FrameExtractor: OUT OF MEMORY at frame $frameIndex")
-                    e.printStackTrace()
+                    Logger.e("FrameExtractor", "OUT OF MEMORY at frame $frameIndex", e)
                     break
                 } catch (e: Exception) {
-                    // Skip failed frames and continue
-                    println("FrameExtractor: Error at frame $frameIndex: ${e.message}")
-                    currentTime += interval
+                    Logger.w("FrameExtractor", "Error at frame $frameIndex: ${e.message}")
+                    currentTimeUs += intervalUs
                 }
             }
 
-            println("FrameExtractor: Extraction complete. Extracted ${extractedFrames.size} frames")
-
             if (isCancelled) {
-                // Clean up extracted frames
                 extractedFrames.forEach { it.file?.delete() }
-                Result.Error("Frame extraction cancelled")
+                return Result.Error("Frame extraction cancelled")
             } else {
-                Result.Success(extractedFrames)
+                return Result.Success(extractedFrames)
             }
         } catch (e: Exception) {
-            Result.Error("Failed to extract frames", e)
+            return Result.Error("Failed to extract frames with Retriever", e)
         } finally {
             try {
                 retriever?.release()
             } catch (e: Exception) {
-                // Ignore release errors
+                // Ignore
             }
         }
     }
