@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(cmd /c \"gradlew.bat assembleDebug\")",
+      "Bash(git checkout:*)",
+      "Bash(cmd /c \"gradlew.bat assembleDebug 2>&1 | tail -50\")"
     ],
     "deny": [],
     "ask": []
