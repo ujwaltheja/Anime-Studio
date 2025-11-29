@@ -44,30 +44,30 @@ object ModelRegistry {
         id = "animegan_hayao",
         name = "AnimeGAN Hayao (Ghibli)",
         category = ModelCategory.STYLE_TRANSFER,
-        filePath = "models/AnimeGANv3_Hayao.tflite",
-        sizeBytes = 8_500_000,  // ~8.5 MB
+        filePath = "models/animeganv3_hayao.tflite",
+        sizeBytes = 4_237_396,  // Actual file size
         version = "3.0",
         requiredDelegate = DelegateType.GPU,
         bundled = true
     )
-    
+
     val ANIMEGAN_SHINKAI = ModelInfo(
         id = "animegan_shinkai",
         name = "AnimeGAN Shinkai",
         category = ModelCategory.STYLE_TRANSFER,
-        filePath = "models/AnimeGANv3_Shinkai.tflite",
-        sizeBytes = 8_500_000,
+        filePath = "models/animeganv3_shinkai.tflite",
+        sizeBytes = 4_237_396,  // Actual file size
         version = "3.0",
         requiredDelegate = DelegateType.GPU,
         bundled = true
     )
-    
+
     val ANIMEGAN_PAPRIKA = ModelInfo(
         id = "animegan_paprika",
         name = "AnimeGAN Paprika",
         category = ModelCategory.STYLE_TRANSFER,
-        filePath = "models/AnimeGANv3_Paprika.tflite",
-        sizeBytes = 8_500_000,
+        filePath = "models/paprika.tflite",
+        sizeBytes = 2_250_816,  // Actual file size
         version = "3.0",
         requiredDelegate = DelegateType.GPU,
         bundled = true

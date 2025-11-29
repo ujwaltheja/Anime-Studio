@@ -8,6 +8,10 @@
 
 Transform your videos into stunning anime-style animations using cutting-edge machine learning, all on your Android device with professional-grade quality.
 
+## ⚠️ Important Setup Note
+
+**Before building**: This project requires additional dependencies (FFmpeg library and some ML models). Please see [SETUP_REQUIREMENTS.md](SETUP_REQUIREMENTS.md) for detailed setup instructions.
+
 ## 🚀 NEW: Phase 1 Optimizations - 3-5x Faster!
 
 **Latest Update (Nov 2025)**: Anime Studio now implements cutting-edge optimization strategies inspired by modern AI research (Wan2.1/2.2):
