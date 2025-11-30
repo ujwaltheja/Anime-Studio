@@ -8,34 +8,41 @@ To build and run Anime Studio, you need the following:
 2.  **JDK**: Version 17.
 3.  **Android SDK**: API 34 (UpsideDownCake).
 
-## 🧠 ML Models
+## 🧠 ML Models (2025 Edition)
 
-The app uses several TensorFlow Lite models.
+The app uses state-of-the-art on-device AI models.
 
-### **1. Included (Bundled) Models**
-These are included in `app/src/main/assets/models/` for immediate testing:
-- **AnimeGAN** (Hayao, Shinkai, Paprika)
-- **Real-ESRGAN** (Dummy version included for testing. Replace with real model for actual upscaling.)
+### **1. Bundled / Auto-Download Models**
+These are handled by the `download_models.ps1` script or included:
+- **AnimeGANv3** (Hayao, Shinkai, Portrait) - *Included*
+- **Real-ESRGAN x4** (Upscaling) - *Bundled* (Ensure `real_esrgan_anime.tflite` is ~16MB+)
+- **White-box Cartoonization** - *Downloadable via script*
 
-### **2. Downloadable Models**
-These are too large to bundle and are downloaded on demand (or simulated in Test Mode):
-- **Waifu Diffusion** (Text-to-Image)
-- **MediaPipe Face Landmarker** (VTuber)
+### **2. Generative Models (AnimeDiffusion XL)**
+These are large models for Text-to-Image generation. Due to size (~2GB total), they must be downloaded manually:
 
-### **⚠️ Important: Real-ESRGAN Setup**
-The included `real_esrgan_anime.tflite` is a **dummy model** to allow the app to build and run. It does **NOT** perform actual upscaling.
+**Required Files:**
+Place these in `app/src/main/assets/models/waifu_diffusion/`:
+1.  `text_encoder.tflite` (~250MB)
+2.  `unet_part1.tflite` (~650MB)
+3.  `unet_part2.tflite` (~650MB)
+4.  `vae_decoder.tflite` (~100MB)
 
-**To enable real upscaling:**
-1.  Download the real `Real-ESRGAN` TFLite model (approx 16MB).
-2.  Rename it to `real_esrgan_anime.tflite`.
-3.  Replace the file in `app/src/main/assets/models/`.
-4.  Rebuild the app.
+**Download Source:**
+Use the links provided in `ModelRegistry.kt` or search for "Stable Diffusion 1.5 Mobile TFLite" on HuggingFace.
 
-### **⚠️ Important: Waifu Diffusion Setup**
-To enable real image generation:
-1.  Download the 4 model parts (Text Encoder, UNet Part 1 & 2, VAE Decoder).
-2.  Place them in `app/src/main/assets/models/waifu_diffusion/` (create directory if needed).
-3.  Update `ModelRegistry.kt` to set `bundled = true` for these models OR host them on a server and update the `downloadUrl`.
+### **⚠️ Setup Instructions**
+1.  **Run the Download Script**:
+    ```powershell
+    ./app/src/main/assets/models/download_models.ps1
+    ```
+    This will fetch the White-box model and verify others.
+
+2.  **Verify Real-ESRGAN**:
+    Ensure `app/src/main/assets/models/real_esrgan_anime.tflite` is >10MB.
+
+3.  **Optional: Enable Generation**:
+    Create `app/src/main/assets/models/waifu_diffusion/` and place the 4 model parts there.
 
 ## 📹 FFmpeg
-The app uses `ffmpeg-kit-full`. Ensure the AAR is present in `app/libs/` or the dependency is correctly resolved from Maven Central.
+The app uses `ffmpeg-kit-full`. Ensure the AAR is present in `app/libs/`.

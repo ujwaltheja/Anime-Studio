@@ -2,27 +2,26 @@ package com.animestudio.vtuber
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.PointF
 import com.animestudio.domain.Result
 import com.animestudio.models.ModelManager
 import com.animestudio.models.ModelRegistry
 import com.animestudio.utils.Logger
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker
+import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.tensorflow.lite.Interpreter
-import java.io.File
-import java.io.FileInputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.channels.FileChannel
+import java.util.Optional
 
 /**
  * VTuber Engine - Face Tracking & Avatar Animation
- * 
- * Uses MediaPipe Face Landmarker (or TFLite equivalent) to track:
- * - Eye blinking
- * - Mouth movement
- * - Head rotation
+ *
+ * Uses MediaPipe Face Landmarker to track:
+ * - Eye blinking (via Blendshapes)
+ * - Mouth movement (via Blendshapes)
+ * - Head rotation (via Transformation Matrix)
  */
 class VTuberEngine(
     private val context: Context,
@@ -30,10 +29,9 @@ class VTuberEngine(
 ) {
     companion object {
         private const val TAG = "VTuberEngine"
-        private const val LANDMARKS_COUNT = 468
     }
 
-    private var interpreter: Interpreter? = null
+    private var faceLandmarker: FaceLandmarker? = null
     private var isInitialized = false
     private var isTestMode = false
 
@@ -48,8 +46,6 @@ class VTuberEngine(
 
     suspend fun initialize(onProgress: (Int) -> Unit = {}): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            // Check for Face Landmarker model
-            // For now, we'll use a placeholder or test mode if missing
             val modelId = ModelRegistry.MEDIAPIPE_FACE_LANDMARKER.id
             
             if (!modelManager.isModelAvailable(modelId)) {
@@ -60,9 +56,23 @@ class VTuberEngine(
             }
 
             val modelPath = modelManager.getModelPath(modelId)!!
-            interpreter = Interpreter(loadModelFile(modelPath))
+            
+            val baseOptions = BaseOptions.builder()
+                .setModelAssetPath(modelPath.absolutePath)
+                .build()
+
+            val options = FaceLandmarker.FaceLandmarkerOptions.builder()
+                .setBaseOptions(baseOptions)
+                .setRunningMode(RunningMode.IMAGE) // Use IMAGE for single frame, VIDEO/LIVE_STREAM for stream
+                .setNumFaces(1)
+                .setOutputFaceBlendshapes(true)
+                .setOutputFacialTransformationMatrixes(true)
+                .build()
+
+            faceLandmarker = FaceLandmarker.createFromOptions(context, options)
             isInitialized = true
             
+            Logger.i(TAG, "MediaPipe Face Landmarker initialized successfully")
             Result.Success(Unit)
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to initialize: ${e.message}")
@@ -91,29 +101,86 @@ class VTuberEngine(
             )
         }
 
-        // Real inference would go here
-        // 1. Preprocess bitmap
-        // 2. Run interpreter
-        // 3. Post-process landmarks
-        // 4. Calculate blendshapes
-        
-        Result.Error("Real inference not implemented yet")
-    }
+        try {
+            val mpImage = BitmapImageBuilder(bitmap).build()
+            val result = faceLandmarker?.detect(mpImage)
+            
+            if (result != null && result.faceBlendshapes().isPresent && result.faceBlendshapes().get().isNotEmpty()) {
+                val blendshapes = result.faceBlendshapes().get()[0]
+                
+                // Extract blendshapes
+                // Note: MediaPipe blendshape names are specific. 
+                // We need to map them. Common indices or names:
+                // eyeBlinkLeft, eyeBlinkRight, jawOpen
+                
+                var leftEyeBlink = 0f
+                var rightEyeBlink = 0f
+                var jawOpen = 0f
+                
+                for (category in blendshapes) {
+                    when (category.categoryName()) {
+                        "eyeBlinkLeft" -> leftEyeBlink = category.score()
+                        "eyeBlinkRight" -> rightEyeBlink = category.score()
+                        "jawOpen" -> jawOpen = category.score()
+                    }
+                }
 
-    private fun loadModelFile(file: File): java.nio.MappedByteBuffer {
-        val inputStream = FileInputStream(file)
-        val fileChannel = inputStream.channel
-        val buffer = fileChannel.map(
-            FileChannel.MapMode.READ_ONLY,
-            0,
-            file.length()
-        )
-        inputStream.close()
-        return buffer
+                // Calculate head rotation from transformation matrix if available
+                var yaw = 0f
+                var pitch = 0f
+                var roll = 0f
+                
+                if (result.facialTransformationMatrixes().isPresent && result.facialTransformationMatrixes().get().isNotEmpty()) {
+                    val matrix = result.facialTransformationMatrixes().get()[0]
+                    // Extract Euler angles from 4x4 matrix
+                    // This is a simplified extraction
+                    // Matrix is row-major float array of size 16
+                    
+                    // Rotation matrix is top-left 3x3
+                    // R = [ r00 r01 r02 ]
+                    //     [ r10 r11 r12 ]
+                    //     [ r20 r21 r22 ]
+                    
+                    // Pitch (x-axis) = atan2(r21, r22)
+                    // Yaw (y-axis) = atan2(-r20, sqrt(r21^2 + r22^2))
+                    // Roll (z-axis) = atan2(r10, r00)
+                    
+                    val r10 = matrix[4]
+                    val r00 = matrix[0]
+                    val r20 = matrix[8]
+                    val r21 = matrix[9]
+                    val r22 = matrix[10]
+                    
+                    pitch = Math.atan2(r21.toDouble(), r22.toDouble()).toFloat()
+                    yaw = Math.atan2(-r20.toDouble(), Math.sqrt((r21 * r21 + r22 * r22).toDouble())).toFloat()
+                    roll = Math.atan2(r10.toDouble(), r00.toDouble()).toFloat()
+                }
+
+                return@withContext Result.Success(
+                    FaceData(
+                        leftEyeOpen = 1.0f - leftEyeBlink,
+                        rightEyeOpen = 1.0f - rightEyeBlink,
+                        mouthOpen = jawOpen,
+                        headYaw = yaw,
+                        headPitch = pitch,
+                        headRoll = roll
+                    )
+                )
+            } else {
+                 // No face detected, return neutral
+                 return@withContext Result.Success(
+                    FaceData(1f, 1f, 0f, 0f, 0f, 0f)
+                 )
+            }
+
+        } catch (e: Exception) {
+            Logger.e(TAG, "Inference error: ${e.message}")
+            return@withContext Result.Error(e.message ?: "Inference error")
+        }
     }
 
     fun release() {
-        interpreter?.close()
-        interpreter = null
+        faceLandmarker?.close()
+        faceLandmarker = null
     }
 }
