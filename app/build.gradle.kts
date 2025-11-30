@@ -193,6 +193,9 @@ dependencies {
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
+    // MediaPipe for face tracking and VTuber features
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+
     // Optional: For cloud API integration (Latest stable versions)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
