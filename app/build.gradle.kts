@@ -158,6 +158,9 @@ dependencies {
     // TF Lite Flex Support for advanced models
     implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.15.0")
 
+    // MediaPipe Tasks for Vision (Face Landmarker, Pose Landmarker)
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+
     // FFmpeg for video processing - Using local AAR
     implementation(files("libs/ffmpeg-kit-full-6.0-2.LTS.aar"))
     implementation("com.arthenica:smart-exception-java:0.2.1")

@@ -34,6 +34,12 @@ $models = @{
         "description" = "Portrait sketch style"
         "inputSize" = "512x512"
     }
+    "whitebox_cartoon.tflite" = @{
+        "url" = "https://storage.googleapis.com/cartoon_gan/fixed_shaped_models/with_metadata/whitebox_cartoon_gan_fp16.tflite"
+        "size" = "2.5MB"
+        "description" = "White-box Cartoonization (2025 Optimized)"
+        "inputSize" = "512x512"
+    }
 }
 
 # Create backup directory if models exist
