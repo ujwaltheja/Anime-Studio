@@ -9,8 +9,12 @@ class InputManager {
 
     private val eventQueue = ConcurrentLinkedQueue<TouchEvent>()
 
+    /** Updated by OpenGLRenderer.onSurfaceChanged — used for ray-casting. */
+    var screenWidth:  Int = 1
+    var screenHeight: Int = 1
+
     var onTouchDown: ((x: Float, y: Float) -> Unit)? = null
-    var onTouchUp: ((x: Float, y: Float) -> Unit)? = null
+    var onTouchUp:   ((x: Float, y: Float) -> Unit)? = null
     var onTouchMove: ((x: Float, y: Float) -> Unit)? = null
 
     /** Called from the View thread (main thread) to enqueue a touch event. */
